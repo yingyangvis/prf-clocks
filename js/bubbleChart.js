@@ -6,7 +6,7 @@ height = window.innerHeight - margin.top - margin.bottom;
 const faceBubbleRadius = 30, faceBubbleStrokeWidth = 10, faceBubbleGap = 6,
 faceImageWidth = 35, faceOffset = 9.5, biggerFaceOffset = 9,
 clockOpacity = .15, bandOpacity = 1,
-snippetWidth = 280, snippetHeight = 120, snippetGap = 10, snippetStacksNum = 12,
+snippetWidth = 280, snippetHeight = 120, snippetGap = 30, snippetStacksNum = 12,
 transitDuration = 1000;
 
 const svg = d3.select("#canvas")
@@ -459,8 +459,9 @@ function ResetMove() {
     });
 };
 
-const snippetPositions = [];
-function PositionSnippets() {
+const snippetPositions = (() => {
+
+    const positions = [];
 
     const ellipseWidth = width / 3;
     const ellipseHeight = height / 2.5;
@@ -474,14 +475,15 @@ function PositionSnippets() {
     let x = centerX;
     let y = centerY - ellipseHeight;
     for (let i = 0; i < segmentsNum; i++) {
-        snippetPositions.push({ x, y });
+        positions.push({ x, y });
 
         angle += angleIncrement;
         x = centerX + ellipseWidth * Math.sin(angle);
         y = centerY - ellipseHeight * Math.cos(angle);
     };
-};
-PositionSnippets();
+
+    return positions;
+})();
 
 let expandedStack = [];
 function ShowSnippets(ele) {
@@ -586,12 +588,22 @@ function ExpandStack(stackDict, stackId, left, top, speakerId) {
     });
 
     d3.select("#snippetLine-" + speakerId + "-" + expandedStack[0].__data__.index).style("opacity", 1);
+    const colNum = Math.ceil(Math.sqrt(expandedStack.length));
     expandedStack.reverse().forEach((snippet, index) => {
         d3.select("#donut-" + speakerId + "-" + snippet.__data__.index).style("opacity", bandOpacity);
         d3.select(snippet)
             .moveToFront()
-            .style("left", left)
-            .style("top", top + index * (snippetHeight + snippetGap * 3));
+            .transition().delay(index * 10)
+            .styleTween("left", () => {
+                const startLeft = snippet.__data__.left;
+                const endLeft = left + index%colNum * (snippetWidth + snippetGap)
+                return d3.interpolateString(startLeft, endLeft);
+            })
+            .styleTween("top", () => {
+                const startTop = snippet.__data__.top;
+                const endTop = top + Math.floor(index / colNum) * (snippetHeight + snippetGap)
+                return d3.interpolateString(startTop, endTop);
+            });
     });
 };
 
