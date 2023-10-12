@@ -43,38 +43,38 @@ const diffData = await d3.csv("data/affiliation_the_voice_the_voice_broad_keysch
 const binData = await d3.csv("data/affiliation_the_voice_the_voice_broad_keyscheck_4sep2023_filtered_chars150to1200_davinci_2_2_bin_edges.csv");
 
 const faceIdDict = {
-   "Adam Bandt" : 10734,
-   "Alicia Payne" : 10919,
-   "Andrew Giles" : 10812,
-   "Andrew Leigh" : 10746,
-   "Andrew Wallace" : 10896,
-   "Anthony Norman Albanese" : 10007,
-   "Barnaby Thomas Gerard Joyce" : 10350,
-   "Bill Richard Shorten" : 10580,
-   "David Littleproud" : 10890,
-   "Gordon Reid" : 10996,
-   "Graham Douglas Perrett" : 10512,
-   "Helen Haines" : 10929,
-   "Josh Burns" : 10934,
-   "Julian Leeser" : 10888,
-   "Kate Chaney" : 10974,
-   "Kate Thwaites" : 10930,
-   "Linda Burney" : 10858,
-   "Luke Gosling" : 10877,
-   "Madeleine King" : 10884,
-   "Mark Alfred Dreyfus" : 10181,
-   "Matt Thistlethwaite" : 10762,
-   "Michael McCormack" : 10743,
-   "Milton Dick" : 10880,
-   "Peta Murphy" : 10924,
-   "Peter Craig Dutton" : 10188,
-   "Scott John Morrison" : 10468,
-   "Sharon Claydon" : 10805,
-   "Shayne Kenneth Neumann" : 10485,
-   "Tim Watts" : 10794,
-   "Warren Edward Snowdon" : 10599,
-   "Zali Steggall" : 10941,
-   "Zoe Daniel" : 10979
+    "Adam Bandt" : 10734,
+    "Alicia Payne" : 10919,
+    "Andrew Giles" : 10812,
+    "Andrew Leigh" : 10746,
+    "Andrew Wallace" : 10896,
+    "Anthony Norman Albanese" : 10007,
+    "Barnaby Thomas Gerard Joyce" : 10350,
+    "Bill Richard Shorten" : 10580,
+    "David Littleproud" : 10890,
+    "Gordon Reid" : 10996,
+    "Graham Douglas Perrett" : 10512,
+    "Helen Haines" : 10929,
+    "Josh Burns" : 10934,
+    "Julian Leeser" : 10888,
+    "Kate Chaney" : 10974,
+    "Kate Thwaites" : 10930,
+    "Linda Burney" : 10858,
+    "Luke Gosling" : 10877,
+    "Madeleine King" : 10884,
+    "Mark Alfred Dreyfus" : 10181,
+    "Matt Thistlethwaite" : 10762,
+    "Michael McCormack" : 10743,
+    "Milton Dick" : 10880,
+    "Peta Murphy" : 10924,
+    "Peter Craig Dutton" : 10188,
+    "Scott John Morrison" : 10468,
+    "Sharon Claydon" : 10805,
+    "Shayne Kenneth Neumann" : 10485,
+    "Tim Watts" : 10794,
+    "Warren Edward Snowdon" : 10599,
+    "Zali Steggall" : 10941,
+    "Zoe Daniel" : 10979
 };
 
 // process data
@@ -108,7 +108,7 @@ speechData.forEach(d => {
         speakers[speaker].startDate = speakers[speaker].startDate < d.formatedDate ? speakers[speaker].startDate : d.formatedDate;
         speakers[speaker].endDate = speakers[speaker].endDate > d.formatedDate ? speakers[speaker].endDate : d.formatedDate;
         speakers[speaker].speeches[d.date] = d;
-    };
+    }
 });
 dates = [...new Set(dates)].concat(["0000-00-00"]).sort().reverse();
 let diffs = [],
@@ -151,7 +151,7 @@ Object.values(speakers).forEach(d => {
                 value : percent,
                 hasSpeech : 1
             });
-        };
+        }
     });
 });
 Object.entries(affiliationClusters).forEach(entry => {
@@ -186,7 +186,7 @@ Object.entries(affiliationSpeakers).forEach(entry => {
         }
         else {
             affiPosiCounter = movePosition(entry[0], affiPosiCounter, item.speaker);
-        };
+        }
     });
 
     affiliationDomain.push(entry[0] + (affiPosiCounter + 1));
@@ -211,7 +211,7 @@ function movePosition(affilication, counter, speaker) {
         }
     }
     return counter;
-};
+}
 affiliationDomain = [...new Set(affiliationDomain)];
 affiliationDomain.sort().pop();
 
@@ -269,7 +269,8 @@ faceBubble.each(item => {
         .attr("transform", "translate(" + item.cx + "," + item.cy + ")");
 });
 
-let viewMoved = false;
+let viewMoved = false,
+mouseoveredFaceId, mouseoveredLeft, mouseoveredTop, mouseoveredEle;
 function addFace(faceId, left, top, ele) {
     
     const newDiv = document.createElement("div");
@@ -288,6 +289,10 @@ function addFace(faceId, left, top, ele) {
         if (viewMoved) return;
 
         ele.mouseover = true;
+        mouseoveredFaceId = faceId;
+        mouseoveredLeft = left;
+        mouseoveredTop = top;
+        mouseoveredEle = ele;
 
         d3.select("#face-" + faceId)
             .style("width", faceImageWidth * 1.5)
@@ -327,48 +332,40 @@ function addFace(faceId, left, top, ele) {
         if (top < tooltipTextEle.offsetHeight) d3.select("#tooltip-container").style("top", top + 55);
     };
  
-    newDiv.onmouseout = function() {
-        if (!viewMoved) MouseOut(faceId, left, top, ele);
-    };
+    newDiv.onmouseout = function() { if (!viewMoved) MouseOut(); };
 
-    newDiv.onclick = function() {
-        if (ele.mouseover) ClickFace(faceId, left, top, ele); 
-    };
-};
+    newDiv.onclick = function() { ClickFace(ele); };
+}
 
-function MouseOut(faceId, left, top, ele) {
+function MouseOut() {
 
-    d3.select("#face-" + faceId)
+    d3.select("#face-" + mouseoveredFaceId)
         .style("width", faceImageWidth)
         .style("height", faceImageWidth)
-        .style("left", left)
-        .style("top", top);
+        .style("left", mouseoveredLeft)
+        .style("top", mouseoveredTop);
 
-    d3.select("#circle-" + faceId)
+    d3.select("#circle-" + mouseoveredFaceId)
         .attr("r", faceBubbleRadius)
         .attr("stroke-width", 0)
         .attr("fill-opacity", 0);
 
     d3.select("#tooltip-container").style("display", "none");
 
-    ele.mouseover = false;
-};
+    mouseoveredEle.mouseover = false;
+}
 
-function ClickFace(faceId, left, top, ele) {
-
+function ClickFace(ele) {
     if (viewMoved) {
-        d3.selectAll(".snippetLines").remove();
-        d3.selectAll(".snippets").remove();
         ResetMove();
-        MouseOut(faceId, left, top, ele);
         setTimeout(() => { viewMoved = !viewMoved; }, transitDuration);
     } 
     else {
         MoveToFace(ele);
         setTimeout(() => { ShowSnippets(ele); }, transitDuration);
         viewMoved = !viewMoved;
-    };
-};
+    }
+}
 
 function MoveToFace(ele) {
     
@@ -426,9 +423,14 @@ function MoveToFace(ele) {
             const endTop = ele.ncy - 90;
             return d3.interpolateString(startTop, endTop);
         });
-};
+}
 
 function ResetMove() {
+
+    d3.selectAll(".snippetLines").remove();
+    d3.selectAll(".snippets").remove();
+    expandedStack = [];
+    MouseOut();
 
     faceBubble.each(item => {
 
@@ -457,7 +459,14 @@ function ResetMove() {
             .transition().duration(transitDuration)
             .attr("transform", "translate(" + item.cx + "," + item.cy + ")");
     });
-};
+}
+
+svg.on("click", function() {
+    if (viewMoved) {
+        ResetMove();
+        setTimeout(() => { viewMoved = !viewMoved; }, transitDuration);
+    }
+});
 
 const snippetPositions = (() => {
 
@@ -480,7 +489,7 @@ const snippetPositions = (() => {
         angle += angleIncrement;
         x = centerX + ellipseWidth * Math.sin(angle);
         y = centerY - ellipseHeight * Math.cos(angle);
-    };
+    }
 
     return positions;
 })();
@@ -521,9 +530,10 @@ function ShowSnippets(ele) {
             })
             .attr("stroke", snippetColour)
             .style("stroke-dasharray", ("5, 15")) 
-            .style("stroke-width", 0)
+            .style("stroke-width", 1)
+            .style("opacity", 0)
             .transition().delay(counter * 30)
-            .style("stroke-width", 1);
+            .style("opacity", 1);
 
         const clone = original.cloneNode(true);
 
@@ -569,7 +579,7 @@ function ShowSnippets(ele) {
         if (stackDict[stackId] === undefined) stackDict[stackId] = [];
         stackDict[stackId].push(clone);
     });
-};
+}
 
 function ExpandStack(stackDict, stackId, left, top, speakerId) {
 
@@ -605,7 +615,7 @@ function ExpandStack(stackDict, stackId, left, top, speakerId) {
                 return d3.interpolateString(startTop, endTop);
             });
     });
-};
+}
 
 function CollapseStack(stackDict) {
 
@@ -627,4 +637,4 @@ function CollapseStack(stackDict) {
             .style("left", snippet.__data__.left)
             .style("top", snippet.__data__.top);
     });
-};
+}
