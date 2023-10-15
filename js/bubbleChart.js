@@ -7,6 +7,7 @@ const faceBubbleRadius = 30, faceBubbleStrokeWidth = 10, faceBubbleGap = 6,
 faceImageWidth = 35, faceOffset = 9.5, biggerFaceOffset = 9,
 clockOpacity = .15, bandOpacity = 1,
 snippetWidth = 280, snippetHeight = 120, snippetGap = 30, snippetStacksNum = 12,
+callOutSnippetWidth = 500,
 transitDuration = 1000;
 
 const svg = d3.select("#canvas")
@@ -36,6 +37,7 @@ const affiliationColours = {
     "Liberal Party of Australia" : "#1c4c9c",
     "National Party of Australia" : "#f7d105" 
 };
+const diffColourScale = d3.scaleSequential(d3.interpolatePiYG);
 
 // load data
 const speechData = await d3.json("data/affiliation_the_voice_the_voice_broad_keyscheck_4sep2023_filtered_chars150to1200_davinci_2_2.json");
@@ -76,6 +78,8 @@ const faceIdDict = {
     "Zali Steggall" : 10941,
     "Zoe Daniel" : 10979
 };
+
+diffColourScale.domain(d3.extent(speechData.map(d => d.diff)));
 
 // process data
 let diffDict = diffData.reduce((obj,item) => { Object.assign(obj, { [item.speaker] : { median : item.median, cluster : item.cluster } }); return obj;}, {});
@@ -269,7 +273,7 @@ faceBubble.each(item => {
         .attr("transform", "translate(" + item.cx + "," + item.cy + ")");
 });
 
-let viewMoved = false,
+let viewMoved = false, viewMoving = false,
 mouseoveredFaceId, mouseoveredLeft, mouseoveredTop, mouseoveredEle;
 function addFace(faceId, left, top, ele) {
     
@@ -285,59 +289,72 @@ function addFace(faceId, left, top, ele) {
     parentDiv.appendChild(newDiv);
 
     newDiv.onmouseover = function() {
-
         if (viewMoved) return;
+        MouseoverFace(ele, faceId, left, top);
+    };
+ 
+    newDiv.onmouseout = function() { if (!viewMoved) MouseoutFace(); };
 
-        ele.mouseover = true;
-        mouseoveredFaceId = faceId;
-        mouseoveredLeft = left;
-        mouseoveredTop = top;
-        mouseoveredEle = ele;
+    newDiv.onclick = function(event) {
+        if (event.detail == 1 && !viewMoving) {
+            if (!ele.mouseover)  {
+                MouseoutFace();
+                MouseoverFace(ele, faceId, left, top);
+            }
+            ClickFace(ele); 
+        }
+    };
+}
 
-        d3.select("#face-" + faceId)
-            .style("width", faceImageWidth * 1.5)
-            .style("height", faceImageWidth * 1.5)
-            .style("left", left - biggerFaceOffset)
-            .style("top", top - biggerFaceOffset);
+function MouseoverFace(ele, faceId, left, top) {
 
-        d3.selectAll("#group-" + faceId).moveToFront();
-        d3.selectAll("#circle-" + faceId)
-            .attr("r", faceBubbleRadius * 1.2)
-            .attr("stroke-width", 2)
-            .attr("fill-opacity", 1)
-            .moveToFront();
-        d3.selectAll(".donut-" + faceId).moveToFront();
+    ele.mouseover = true;
+    mouseoveredFaceId = faceId;
+    mouseoveredLeft = left;
+    mouseoveredTop = top;
+    mouseoveredEle = ele;
 
-        d3.select("#tooltip-container")
+    d3.select("#face-" + mouseoveredFaceId)
+        .style("width", faceImageWidth * 1.5)
+        .style("height", faceImageWidth * 1.5)
+        .style("left", mouseoveredLeft - biggerFaceOffset)
+        .style("top", mouseoveredTop - biggerFaceOffset);
+
+    d3.selectAll("#group-" + faceId).moveToFront();
+    d3.select("#circle-" + mouseoveredFaceId)
+        .attr("r", faceBubbleRadius * 1.2)
+        .attr("stroke-width", 2)
+        .attr("fill-opacity", 1)
+        .moveToFront();
+    d3.selectAll(".donut-" + faceId).moveToFront();
+
+    d3.select("#tooltip-container")
             .style("display", "block")
             .style("left", left)
             .style("top", top - 130);
 
-        const tooltipText = "<b>Speaker: </b>" + ele.speaker + "<br/>" + 
-            "<b>Affiliation: </b>" + ele.affiliation + "<br/>" + 
-            "<b>Speech Snippet Count: </b>" + Object.keys(ele.speeches).length  + "<br/>" +
-            "<b>Speech Median Diff: </b>" + ele.median;
-        d3.select("#tooltip-text").html( tooltipText );
+    const tooltipText = "<b>Speaker: </b>" + ele.speaker + "<br/>" + 
+        "<b>Affiliation: </b>" + ele.affiliation + "<br/>" + 
+        "<b>Speech Snippet Count: </b>" + Object.keys(ele.speeches).length  + "<br/>" +
+        "<b>Speech Median Framing: </b>" + ele.median;
+    d3.select("#tooltip-text").html( tooltipText );
 
-        const tooltipTextEle = d3.select("#tooltip-text")._groups[0][0];
+    const tooltipTextEle = d3.select("#tooltip-text")._groups[0][0];
 
-        d3.select("#tooltip-container")
-            .style("left", () => {
-                const tooltipHalfWidth = tooltipTextEle.offsetWidth / 2;
-                if (left < tooltipHalfWidth) return 10;
-                else if ((left + tooltipHalfWidth) > width) return width - tooltipHalfWidth * 2;
-                else return left - tooltipHalfWidth; 
-            });
+    d3.select("#tooltip-container")
+        .style("left", () => {
+            const tooltipHalfWidth = tooltipTextEle.offsetWidth / 2,
+            windowsWidth =  width + margin.right;
 
-        if (top < tooltipTextEle.offsetHeight) d3.select("#tooltip-container").style("top", top + 55);
-    };
- 
-    newDiv.onmouseout = function() { if (!viewMoved) MouseOut(); };
+            if (left < tooltipHalfWidth) return 10;
+            else if ((left + tooltipHalfWidth) > windowsWidth) return width - tooltipHalfWidth * 2;
+            else return left - tooltipHalfWidth; 
+        });
 
-    newDiv.onclick = function() { ClickFace(ele); };
+    if (top < tooltipTextEle.offsetHeight) d3.select("#tooltip-container").style("top", top + 55);
 }
 
-function MouseOut() {
+function MouseoutFace() {
 
     d3.select("#face-" + mouseoveredFaceId)
         .style("width", faceImageWidth)
@@ -356,13 +373,16 @@ function MouseOut() {
 }
 
 function ClickFace(ele) {
+    viewMoving = true;
     if (viewMoved) {
         ResetMove();
         setTimeout(() => { viewMoved = !viewMoved; }, transitDuration);
+        setTimeout(() => { viewMoving = false; }, transitDuration * 1.2);
     } 
     else {
         MoveToFace(ele);
         setTimeout(() => { ShowSnippets(ele); }, transitDuration);
+        setTimeout(() => { viewMoving = false; }, transitDuration * 1.2);
         viewMoved = !viewMoved;
     }
 }
@@ -393,7 +413,7 @@ function MoveToFace(ele) {
             .styleTween("left", () => { return d3.interpolateString(startLeft, endLeft); })
             .styleTween("top", () => { return d3.interpolateString(startTop, endTop); })
             .transition().duration(0).delay(transitDuration / 10)
-            .style("opacity", item.speaker == ele.speaker ? 1 : .1)
+            .style("opacity", item.speaker == ele.speaker ? 1 : .03)
             .style("display", endLeft > (width + margin.left * 2) || endTop > (height + margin.top) ? "none" : "block");
 
         d3.select("#circle-" + faceIdDict[item.speaker])
@@ -406,7 +426,7 @@ function MoveToFace(ele) {
             .attr("transform", "translate(" + item.ncx + "," + item.ncy + ")")
             .transition().duration(0).delay(transitDuration / 10)
             .style("opacity", d => {
-                if (item.speaker != ele.speaker) return d.data.hasSpeech == 0 ? .05 : .1;
+                if (item.speaker != ele.speaker) return d.data.hasSpeech == 0 ? .015 : .03;
                 else return d.data.hasSpeech == 0 ? clockOpacity : bandOpacity;
             });
     });
@@ -427,10 +447,10 @@ function MoveToFace(ele) {
 
 function ResetMove() {
 
-    d3.selectAll(".snippetLines").remove();
     d3.selectAll(".snippets").remove();
-    expandedStack = [];
-    MouseOut();
+    d3.selectAll(".snippetTabs").remove();
+    prevSnippet = null;
+    MouseoutFace();
 
     faceBubble.each(item => {
 
@@ -461,23 +481,23 @@ function ResetMove() {
     });
 }
 
-svg.on("click", function() {
-    if (viewMoved) {
+svg.on("click", function(event) {
+    if (viewMoved && event.detail == 1 && !viewMoving) {
+        viewMoving = true;
         ResetMove();
         setTimeout(() => { viewMoved = !viewMoved; }, transitDuration);
+        setTimeout(() => { viewMoving = false; }, transitDuration * 1.2);
     }
 });
 
-const snippetPositions = (() => {
+const snippetPositions = CalculatePositions(width / 3, height / 2.25, snippetStacksNum),
+tabPositions = CalculatePositions(width / 4.5, height / 3.75, dates.length - 1 + faceBubbleGap);
+function CalculatePositions(ellipseWidth, ellipseHeight, segmentsNum) {
 
     const positions = [];
 
-    const ellipseWidth = width / 3;
-    const ellipseHeight = height / 2.5;
     const centerX = width / 2;
     const centerY = height / 2;
-
-    const segmentsNum = snippetStacksNum;
     const angleIncrement = (2 * Math.PI) / segmentsNum;
 
     let angle = 0;
@@ -492,12 +512,11 @@ const snippetPositions = (() => {
     }
 
     return positions;
-})();
-
-let expandedStack = [];
+}
 function ShowSnippets(ele) {
 
-    const original = document.getElementById("snippet-container");
+    const originalSnippet = document.getElementById("snippet-container"),
+    originalTab = document.getElementById("snippet-tab");
 
     let counter = 0,
     stackDict = {};
@@ -506,38 +525,17 @@ function ShowSnippets(ele) {
 
         const index = dates.indexOf(key) - 1 + faceBubbleGap,
         stackId = Math.floor(index / snippetStacksNum),
-        snippetY = snippetPositions[stackId].y + index%snippetStacksNum,
+        snippetY = snippetPositions[stackId].y - margin.top / 2 + index%snippetStacksNum,
         snippetColour =  d3.color(affiliationColours[ele.affiliation]).darker(ele.darkness);
         let snippetX = stackId <= 6 ? snippetPositions[stackId].x + margin.left + index%snippetStacksNum : snippetPositions[stackId].x - snippetWidth + margin.left + index%snippetStacksNum;
         if (stackId == 0 || stackId == 6) snippetX -=  snippetWidth / 2;
         else if (stackId == 1 || stackId == 5) snippetX -= snippetWidth / 3;
         else if (stackId == 7 || stackId == 11) snippetX += snippetWidth / 3;
 
-        svg.append("line")
-            .attr("class", "snippetLines")
-            .attr("id", "snippetLine-" + faceIdDict[ele.speaker] + "-" + dates.indexOf(key))
-            .attr("x1", ele.ncx + margin.left)
-            .attr("y1", ele.ncy + margin.top)
-            .attr("x2", () => {
-                if (stackId == 0 || stackId == 6) return snippetX + snippetWidth / 2;
-                else if (stackId < 6) return snippetX;
-                else return snippetX + snippetWidth;
-            })
-            .attr("y2", () => {
-                if (stackId > 3 && stackId < 9) return snippetY;
-                else if (stackId == 3 || stackId == 9) return snippetY + snippetHeight / 2;
-                else return snippetY + snippetHeight;
-            })
-            .attr("stroke", snippetColour)
-            .style("stroke-dasharray", ("5, 15")) 
-            .style("stroke-width", 1)
-            .style("opacity", 0)
-            .transition().delay(counter * 30)
-            .style("opacity", 1);
+        const cloneSnippet = originalSnippet.cloneNode(true),
+        cloneTab = originalTab.cloneNode(true);
 
-        const clone = original.cloneNode(true);
-
-        d3.select(clone)
+        d3.select(cloneSnippet)
             .attr("class", "snippets")
             .attr("id", "snippet-" + ++counter)
             .style("position", "absolute")
@@ -554,87 +552,159 @@ function ShowSnippets(ele) {
             .style("background", "white")
             .style("display", "block")
             .on("click", function() {
-                    CollapseStack(stackDict);
-                    if (expandedStack == stackDict[stackId]) {
-                        expandedStack = [];
-                    }
-                    else {
-                        expandedStack = stackDict[stackId];
-                        ExpandStack(stackDict, stackId, snippetX, snippetY, faceIdDict[ele.speaker]);
-                    }
+                const newSnippet = prevSnippet == null ? true : prevSnippet.id != cloneSnippet.id;
+                if (prevSnippet != null) PutBackSnippet(stackDict, false);
+                if (newSnippet) CallOutSnippet(cloneSnippet);
             })
             .style("opacity", 0)
             .transition().delay(counter * 30)
             .style("opacity", 1);
 
         const snippetText = "<b>Date:</b> " + speeches[key].formatedDate.toLocaleDateString("en-au", { year:"numeric", month:"short", day:"numeric"}) + "<br/>" + 
-            "<b>Speech Snippet Diff: </b>" + speeches[key].diff.toFixed(3)  + "<br/>" +
+            "<b>Speech Snippet Framing: </b>" + speeches[key].diff.toFixed(3)  + "<br/>" +
 			"<b>Speech Snippet: </b>" + "<br/>" + speeches[key].text;
-        d3.select(clone).selectChildren().html( snippetText );
+        d3.select(cloneSnippet).selectChildren().html( snippetText );
+        cloneSnippet.__data__ = { left : snippetX, top : snippetY, colour : snippetColour, id : faceIdDict[ele.speaker], index : dates.indexOf(key) };
 
-        original.parentNode.appendChild(clone);
+        d3.select(cloneTab)
+            .attr("class", "snippetTabs")
+            .attr("id", "snippetTab-" + faceIdDict[ele.speaker] + "-" + dates.indexOf(key))
+            .style("position", "absolute")
+            .style("left", tabPositions[dates.indexOf(key)].x + margin.left)
+            .style("top", tabPositions[dates.indexOf(key)].y + margin.top)
+            .style("width", 12)
+            .style("height", 12)
+            .style("border-style", "solid")
+            .style("border-color", "black")
+            .style("border-width", "0.5px")
+            .style("background", diffColourScale(speeches[key].diff))
+            .on("mouseover", function() {
+                d3.select(this).moveToFront();
+                HighlightSnippet(stackDict, cloneSnippet);
+            })
+            .on("mouseout", function() {
+                DehighlightSnippet(stackDict);
+            })
+            .on("click", function() {
+                const newSnippet = prevSnippet == null ? true : prevSnippet.id != cloneSnippet.id;
+                if (prevSnippet != null) PutBackSnippet(stackDict, true);
+                if (newSnippet) CallOutSnippet(cloneSnippet);
+            })
+            .style("opacity", 0)
+            .transition().duration(0).delay(counter * 30)
+            .style("opacity", 1);
 
-        clone.__data__ = { left : snippetX, top : snippetY, colour : snippetColour, id : faceIdDict[ele.speaker], index : dates.indexOf(key) };
+        originalSnippet.parentNode.appendChild(cloneSnippet);
+        originalTab.parentNode.appendChild(cloneTab);
 
         if (stackDict[stackId] === undefined) stackDict[stackId] = [];
-        stackDict[stackId].push(clone);
+        stackDict[stackId].push(cloneSnippet);
     });
 }
 
-function ExpandStack(stackDict, stackId, left, top, speakerId) {
+function HighlightSnippet(stackDict, snippet) {
 
-    d3.selectAll(".snippetLines").style("opacity", 0);
-    d3.selectAll(".donut-" + speakerId).style("opacity", clockOpacity);
+    HighlightMinor(snippet);
+
     Object.keys(stackDict).forEach(key => {
-        if (key == stackId) return;
-        stackDict[key].forEach(snippet => {
-            let colour = snippet.__data__.colour;
+        stackDict[key].forEach(item => {
+            if (item == snippet) return;
+            let colour = item.__data__.colour;
             colour.opacity = .15;
-            d3.select(snippet)
+            d3.select(item)
                 .style("color", "lightgrey")
                 .style("border", "1.5px solid " + colour);
             colour.opacity = 1;
         });
     });
-
-    d3.select("#snippetLine-" + speakerId + "-" + expandedStack[0].__data__.index).style("opacity", 1);
-    const colNum = Math.ceil(Math.sqrt(expandedStack.length));
-    expandedStack.reverse().forEach((snippet, index) => {
-        d3.select("#donut-" + speakerId + "-" + snippet.__data__.index).style("opacity", bandOpacity);
-        d3.select(snippet)
-            .moveToFront()
-            .transition().delay(index * 10)
-            .styleTween("left", () => {
-                const startLeft = snippet.__data__.left;
-                const endLeft = left + index%colNum * (snippetWidth + snippetGap)
-                return d3.interpolateString(startLeft, endLeft);
-            })
-            .styleTween("top", () => {
-                const startTop = snippet.__data__.top;
-                const endTop = top + Math.floor(index / colNum) * (snippetHeight + snippetGap)
-                return d3.interpolateString(startTop, endTop);
-            });
-    });
+    
+    d3.select(snippet).moveToFront();
 }
 
-function CollapseStack(stackDict) {
+function DehighlightSnippet(stackDict) {
 
-    if (expandedStack.length == 0) return;
+    DehighlightMinor(stackDict);
 
-    d3.selectAll(".snippetLines").style("opacity", 1);
     d3.selectAll(".snippets")
         .style("color", "black")
         .style("border", d => "1.5px solid " + d.colour);
+
+    if (prevSnippet != null) HighlightMinor(prevSnippet);
+}
+
+function HighlightMinor(snippet) {
+
+    d3.selectAll(".snippetTabs").style("opacity", .25);
+    d3.selectAll(".donut-" + snippet.__data__.id).style("opacity", clockOpacity);
+
+    d3.select("#snippetTab-" + snippet.__data__.id + "-" +  snippet.__data__.index)
+        .style("border-width", "2px")
+        .style("opacity", 1);
+    d3.select("#donut-" + snippet.__data__.id + "-" + snippet.__data__.index)
+        .style("opacity", bandOpacity);
+}
+
+function DehighlightMinor(stackDict) {
+    d3.selectAll(".snippetTabs")
+        .style("border-width", "0.5px")
+        .style("opacity", 1);
     Object.keys(stackDict).forEach(key => {
         stackDict[key].forEach(snippet => {
             d3.select("#donut-" + snippet.__data__.id + "-" + snippet.__data__.index).style("opacity", bandOpacity);
         });
     });
+}
 
-    expandedStack.reverse().forEach(snippet => {
-        d3.select(snippet)
-            .moveToFront()
-            .style("left", snippet.__data__.left)
-            .style("top", snippet.__data__.top);
-    });
+let prevSnippet = null;
+function CallOutSnippet(snippet, tabCallout) {
+
+    prevSnippet = snippet;
+
+    d3.select(snippet)
+        .moveToFront()
+        .style("width", callOutSnippetWidth)
+        .style("max-height", height / 2)
+        .transition().duration(transitDuration / 5)
+        .styleTween("height", () => {
+            const newHeight = d3.select(snippet).selectChildren()._groups[0][0].offsetHeight;
+            return d3.interpolateString(snippetHeight, newHeight);
+        })
+        .styleTween("left", () => {
+            const startLeft = snippet.__data__.left;
+            const endLeft = width / 2 - callOutSnippetWidth / 2 + margin.left;
+            return d3.interpolateString(startLeft, endLeft);
+        })
+        .styleTween("top", () => {
+            const startTop = snippet.__data__.top;
+            const endTop = height / 2 - snippetHeight;
+            return d3.interpolateString(startTop, endTop);
+        });
+
+    if (!tabCallout) HighlightMinor(snippet);
+}
+
+function PutBackSnippet(stackDict) {
+
+    const startHeight = prevSnippet.style.height,
+    startLeft  = prevSnippet.style.left,
+    endLeft = prevSnippet.__data__.left,
+    startTop = prevSnippet.style.top,
+    endTop = prevSnippet.__data__.top;
+
+    d3.select(prevSnippet)
+        .style("width", snippetWidth)
+        .transition().duration(transitDuration / 5)
+        .styleTween("height", () => {
+            return d3.interpolateString(startHeight, snippetHeight);
+        })
+        .styleTween("left", () => {
+            return d3.interpolateString(startLeft, endLeft);
+        })
+        .styleTween("top", () => {
+            return d3.interpolateString(startTop, endTop);
+        });
+
+    prevSnippet = null;
+
+    DehighlightMinor(stackDict);
 }
