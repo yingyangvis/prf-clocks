@@ -1,91 +1,90 @@
 // define svg canvas and vis variables
-const margin = {top: 50, right: 100, bottom: 50, left: 100},
-width = window.innerWidth - margin.left - margin.right,
-height = window.innerHeight - margin.top - margin.bottom;
+const margin = { top: 50, right: 100, bottom: 50, left: 100 },
+    width = window.innerWidth - margin.left - margin.right,
+    height = window.innerHeight - margin.top - margin.bottom;
 
 const faceBubbleRadius = 30, faceBubbleStrokeWidth = 10, faceBubbleGap = 6,
-faceImageWidth = 35, faceOffset = 9.5, biggerFaceOffset = 9,
-clockOpacity = .15, bandOpacity = 1,
-snippetWidth = 280, snippetHeight = 120, snippetGap = 30, snippetStacksNum = 12,
-callOutSnippetWidth = 500,
-transitDuration = 1000;
+    faceImageWidth = 35, faceOffset = 9.5, biggerFaceOffset = 9,
+    clockOpacity = .15, bandOpacity = 1,
+    snippetWidth = 280, snippetHeight = 120, snippetGap = 30, snippetStacksNum = 12,
+    callOutSnippetWidth = 500,
+    transitDuration = 1000;
 
 const svg = d3.select("#canvas")
-	.append("svg")
-	.attr("width", width + margin.left + margin.right - 10)
-	.attr("height", height + margin.top + margin.bottom - 20),
-visGroup = svg.append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    .append("svg")
+    .attr("width", width + margin.left + margin.right - 10)
+    .attr("height", height + margin.top + margin.bottom - 20),
+    visGroup = svg.append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 let resizeId;
-$(window).resize(function() {
+$(window).resize(function () {
     clearTimeout(resizeId);
     resizeId = setTimeout(() => { location.reload(); }, 100);
 });
 
-d3.selection.prototype.moveToFront = function() {
-    return this.each(function() {
+d3.selection.prototype.moveToFront = function () {
+    return this.each(function () {
         this.parentNode.appendChild(this);
     });
 };
 
 // define colour palette
 const affiliationColours = {
-    "Australian Greens" : "#088c44",
-    "Australian Labor Party" : "#e43944",
-    "Independent" : "#248ca4",
-    "Liberal Party of Australia" : "#1c4c9c",
-    "National Party of Australia" : "#f7d105" 
+    "Australian Greens": "#088c44",
+    "Australian Labor Party": "#e43944",
+    "Independent": "#248ca4",
+    "Liberal Party of Australia": "#1c4c9c",
+    "National Party of Australia": "#f7d105"
 };
 const diffColourScale = d3.scaleSequential(d3.interpolatePiYG);
 
 // load data
-const speechData = await d3.json("data/affiliation_the_voice_the_voice_broad_keyscheck_4sep2023_filtered_chars150to1200_davinci_2_2.json");
-const diffData = await d3.csv("data/affiliation_the_voice_the_voice_broad_keyscheck_4sep2023_filtered_chars150to1200_davinci_2_2_summary_table.csv");
-const binData = await d3.csv("data/affiliation_the_voice_the_voice_broad_keyscheck_4sep2023_filtered_chars150to1200_davinci_2_2_bin_edges.csv");
+const speechData = await d3.json("data/results_speaker_affil.json");
+const diffData = await d3.csv("data/results_speaker_affil_summary_table_affiliation.csv");
 
 const faceIdDict = {
-    "Adam Bandt" : 10734,
-    "Alicia Payne" : 10919,
-    "Andrew Giles" : 10812,
-    "Andrew Leigh" : 10746,
-    "Andrew Wallace" : 10896,
-    "Anthony Norman Albanese" : 10007,
-    "Barnaby Thomas Gerard Joyce" : 10350,
-    "Bill Richard Shorten" : 10580,
-    "David Littleproud" : 10890,
-    "Gordon Reid" : 10996,
-    "Graham Douglas Perrett" : 10512,
-    "Helen Haines" : 10929,
-    "Josh Burns" : 10934,
-    "Julian Leeser" : 10888,
-    "Kate Chaney" : 10974,
-    "Kate Thwaites" : 10930,
-    "Linda Burney" : 10858,
-    "Luke Gosling" : 10877,
-    "Madeleine King" : 10884,
-    "Mark Alfred Dreyfus" : 10181,
-    "Matt Thistlethwaite" : 10762,
-    "Michael McCormack" : 10743,
-    "Milton Dick" : 10880,
-    "Peta Murphy" : 10924,
-    "Peter Craig Dutton" : 10188,
-    "Scott John Morrison" : 10468,
-    "Sharon Claydon" : 10805,
-    "Shayne Kenneth Neumann" : 10485,
-    "Tim Watts" : 10794,
-    "Warren Edward Snowdon" : 10599,
-    "Zali Steggall" : 10941,
-    "Zoe Daniel" : 10979
+    "Adam Bandt": 10734,
+    "Alicia Payne": 10919,
+    "Andrew Giles": 10812,
+    "Andrew Leigh": 10746,
+    "Andrew Wallace": 10896,
+    "Anthony Norman Albanese": 10007,
+    "Barnaby Thomas Gerard Joyce": 10350,
+    "Bill Richard Shorten": 10580,
+    "David Littleproud": 10890,
+    "Gordon Reid": 10996,
+    "Graham Douglas Perrett": 10512,
+    "Helen Haines": 10929,
+    "Josh Burns": 10934,
+    "Julian Leeser": 10888,
+    "Kate Chaney": 10974,
+    "Kate Thwaites": 10930,
+    "Linda Burney": 10858,
+    "Luke Gosling": 10877,
+    "Madeleine King": 10884,
+    "Mark Alfred Dreyfus": 10181,
+    "Matt Thistlethwaite": 10762,
+    "Michael McCormack": 10743,
+    "Milton Dick": 10880,
+    "Peta Murphy": 10924,
+    "Peter Craig Dutton": 10188,
+    "Scott John Morrison": 10468,
+    "Sharon Claydon": 10805,
+    "Shayne Kenneth Neumann": 10485,
+    "Tim Watts": 10794,
+    "Warren Edward Snowdon": 10599,
+    "Zali Steggall": 10941,
+    "Zoe Daniel": 10979
 };
 
 diffColourScale.domain(d3.extent(speechData.map(d => d.diff)));
 
 // process data
-let diffDict = diffData.reduce((obj,item) => { Object.assign(obj, { [item.speaker] : { median : item.median, cluster : item.cluster } }); return obj;}, {});
+let diffDict = diffData.reduce((obj, item) => { Object.assign(obj, { [item.speaker]: { median: item.median, cluster: item.cluster } }); return obj; }, {});
 
 let speakers = {},
-dates = [];
+    dates = [];
 speechData.forEach(d => {
 
     const speaker = d.speaker;
@@ -97,14 +96,14 @@ speechData.forEach(d => {
 
     if (speakers[speaker] === undefined) {
         speakers[speaker] = {
-            speaker : d.speaker,
-            startDate : d.formatedDate,
-            endDate : d.formatedDate,
+            speaker: d.speaker,
+            startDate: d.formatedDate,
+            endDate: d.formatedDate,
             affiliation: d.affiliation,
-            speeches : {},
-            speechPie : [],
-            median : Number(diffDict[speaker].median),
-            cluster : diffDict[speaker].cluster
+            speeches: {},
+            speechPie: [],
+            median: Number(diffDict[speaker].median),
+            cluster: diffDict[speaker].cluster
         };
         speakers[speaker].speeches[d.date] = d;
     }
@@ -116,8 +115,8 @@ speechData.forEach(d => {
 });
 dates = [...new Set(dates)].concat(["0000-00-00"]).sort().reverse();
 let diffs = [],
-affiliationSpeakers = {},
-affiliationClusters = {};
+    affiliationSpeakers = {},
+    affiliationClusters = {};
 Object.values(speakers).forEach(d => {
 
     diffs.push(d.median);
@@ -125,8 +124,8 @@ Object.values(speakers).forEach(d => {
     const affiliation = d.affiliation;
     if (affiliationSpeakers[affiliation] === undefined) affiliationSpeakers[affiliation] = [];
     const obj = {
-        speaker : d.speaker,
-        median : d.median
+        speaker: d.speaker,
+        median: d.median
     };
     affiliationSpeakers[affiliation].push(obj);
 
@@ -137,29 +136,29 @@ Object.values(speakers).forEach(d => {
     dates.forEach(date => {
         if (date == "0000-00-00") {
             d.speechPie.push({
-                date : date,
-                value : percent * faceBubbleGap,
-                hasSpeech : 2
+                date: date,
+                value: percent * faceBubbleGap,
+                hasSpeech: 2
             })
         }
         else if (d.speeches[date] === undefined) {
             d.speechPie.push({
-                date : date,
-                value : percent,
-                hasSpeech : 0
+                date: date,
+                value: percent,
+                hasSpeech: 0
             });
         }
         else {
             d.speechPie.push({
-                date : date,
-                value : percent,
-                hasSpeech : 1
+                date: date,
+                value: percent,
+                hasSpeech: 1
             });
         }
     });
 });
 Object.entries(affiliationClusters).forEach(entry => {
-    const sortable = Object.entries(entry[1]).sort(([,a],[,b]) => a-b);
+    const sortable = Object.entries(entry[1]).sort(([, a], [, b]) => a - b);
     affiliationClusters[entry[0]] = sortable.map((item) => item[0]);
 });
 console.log(speakers);
@@ -167,11 +166,11 @@ console.log(speakers);
 // define X scale
 const xScale = d3.scaleLinear()
     .domain(d3.extent(diffs))
-    .range([ 0, width ]);
+    .range([0, width]);
 
 // calculate bubble positions
 let affiPosiDict = {},
-affiliationDomain = Object.keys(affiliationSpeakers);
+    affiliationDomain = Object.keys(affiliationSpeakers);
 Object.entries(affiliationSpeakers).forEach(entry => {
 
     entry[1].sort((a, b) => { return a.median - b.median; });
@@ -202,12 +201,12 @@ function movePosition(affilication, counter, speaker) {
     }
     else {
         if (Math.abs(speakers[speaker].cx - affiPosiDict[affilication][counter]) <= faceBubbleRadius * 1.9) {
-            
+
             counter += 1;
             speakers[speaker].y = counter;
             counter = movePosition(affilication, counter, speaker);
 
-            if (counter%2 == 0) affiliationDomain.push(affilication.slice(0,-counter));
+            if (counter % 2 == 0) affiliationDomain.push(affilication.slice(0, -counter));
             else affiliationDomain.push(affilication + counter);
         }
         else {
@@ -222,7 +221,7 @@ affiliationDomain.sort().pop();
 // define Y scale
 const yScale = d3.scaleBand()
     .domain(affiliationDomain)
-    .range([ 0, height ]);
+    .range([0, height]);
 
 // plot bubble chart
 const faceBubble = visGroup.selectAll("g")
@@ -246,14 +245,14 @@ faceBubble.append("circle")
     .attr("opacity", 1)
     .attr("cx", d => d.cx)
     .attr("cy", d => {
-        d.cy = d.y%2 == 0 ? yScale(d.affiliation) - d.y / 2 * faceBubbleRadius * 1.8 : yScale(d.affiliation) + (d.y + 1) / 2 * faceBubbleRadius * 1.8;
+        d.cy = d.y % 2 == 0 ? yScale(d.affiliation) - d.y / 2 * faceBubbleRadius * 1.8 : yScale(d.affiliation) + (d.y + 1) / 2 * faceBubbleRadius * 1.8;
         return d.cy;
     })
     .attr("r", faceBubbleRadius);
 
 const pie = d3.pie().value(d => d.value).sort(null);
 const arc = d3.arc()
-    .innerRadius(faceBubbleRadius/2 + faceBubbleStrokeWidth)
+    .innerRadius(faceBubbleRadius / 2 + faceBubbleStrokeWidth)
     .outerRadius(faceImageWidth);
 faceBubble.each(item => {
 
@@ -274,9 +273,9 @@ faceBubble.each(item => {
 });
 
 let viewMoved = false, viewMoving = false,
-mouseoveredFaceId, mouseoveredLeft, mouseoveredTop, mouseoveredEle;
+    mouseoveredFaceId, mouseoveredLeft, mouseoveredTop, mouseoveredEle;
 function addFace(faceId, left, top, ele) {
-    
+
     const newDiv = document.createElement("div");
     newDiv.setAttribute("class", "thumb");
     newDiv.id = "face-" + faceId;
@@ -288,20 +287,20 @@ function addFace(faceId, left, top, ele) {
     const parentDiv = document.getElementById("faces");
     parentDiv.appendChild(newDiv);
 
-    newDiv.onmouseover = function() {
+    newDiv.onmouseover = function () {
         if (viewMoved) return;
         MouseoverFace(ele, faceId, left, top);
     };
- 
-    newDiv.onmouseout = function() { if (!viewMoved) MouseoutFace(); };
 
-    newDiv.onclick = function(event) {
+    newDiv.onmouseout = function () { if (!viewMoved) MouseoutFace(); };
+
+    newDiv.onclick = function (event) {
         if (event.detail == 1 && !viewMoving) {
-            if (!ele.mouseover)  {
+            if (!ele.mouseover) {
                 MouseoutFace();
                 MouseoverFace(ele, faceId, left, top);
             }
-            ClickFace(ele); 
+            ClickFace(ele);
         }
     };
 }
@@ -329,26 +328,26 @@ function MouseoverFace(ele, faceId, left, top) {
     d3.selectAll(".donut-" + faceId).moveToFront();
 
     d3.select("#tooltip-container")
-            .style("display", "block")
-            .style("left", left)
-            .style("top", top - 130);
+        .style("display", "block")
+        .style("left", left)
+        .style("top", top - 130);
 
-    const tooltipText = "<b>Speaker: </b>" + ele.speaker + "<br/>" + 
-        "<b>Affiliation: </b>" + ele.affiliation + "<br/>" + 
-        "<b>Speech Snippet Count: </b>" + Object.keys(ele.speeches).length  + "<br/>" +
+    const tooltipText = "<b>Speaker: </b>" + ele.speaker + "<br/>" +
+        "<b>Affiliation: </b>" + ele.affiliation + "<br/>" +
+        "<b>Speech Snippet Count: </b>" + Object.keys(ele.speeches).length + "<br/>" +
         "<b>Speech Median Framing: </b>" + ele.median;
-    d3.select("#tooltip-text").html( tooltipText );
+    d3.select("#tooltip-text").html(tooltipText);
 
     const tooltipTextEle = d3.select("#tooltip-text")._groups[0][0];
 
     d3.select("#tooltip-container")
         .style("left", () => {
             const tooltipHalfWidth = tooltipTextEle.offsetWidth / 2,
-            windowsWidth =  width + margin.right;
+                windowsWidth = width + margin.right;
 
             if (left < tooltipHalfWidth) return 10;
             else if ((left + tooltipHalfWidth) > windowsWidth) return width - tooltipHalfWidth * 2;
-            else return left - tooltipHalfWidth; 
+            else return left - tooltipHalfWidth;
         });
 
     if (top < tooltipTextEle.offsetHeight) d3.select("#tooltip-container").style("top", top + 55);
@@ -378,7 +377,7 @@ function ClickFace(ele) {
         ResetMove();
         setTimeout(() => { viewMoved = !viewMoved; }, transitDuration);
         setTimeout(() => { viewMoving = false; }, transitDuration * 1.2);
-    } 
+    }
     else {
         MoveToFace(ele);
         setTimeout(() => { ShowSnippets(ele); }, transitDuration);
@@ -388,15 +387,15 @@ function ClickFace(ele) {
 }
 
 function MoveToFace(ele) {
-    
+
     const newxScale = d3.scaleLinear()
-        .domain([ ele.cx - width / 2, ele.cx + width / 2 ])
-        .range([ 0, width ]);
+        .domain([ele.cx - width / 2, ele.cx + width / 2])
+        .range([0, width]);
 
     const newyScale = d3.scaleLinear()
-        .domain([ ele.cy - height / 2, ele.cy + height / 2 ])
-        .range([ 0, height ]);
-    
+        .domain([ele.cy - height / 2, ele.cy + height / 2])
+        .range([0, height]);
+
     faceBubble.each(item => {
 
         item.ncx = newxScale(item.cx);
@@ -430,15 +429,15 @@ function MoveToFace(ele) {
                 else return d.data.hasSpeech == 0 ? clockOpacity : bandOpacity;
             });
     });
-    
+
     d3.select("#tooltip-container")
         .transition().duration(transitDuration)
-        .styleTween("left", function() {
+        .styleTween("left", function () {
             const startLeft = this.style.left;
             const endLeft = ele.ncx + margin.left - this.offsetWidth / 2;
             return d3.interpolateString(startLeft, endLeft);
         })
-        .styleTween("top", function() {
+        .styleTween("top", function () {
             const startTop = this.style.top;
             const endTop = ele.ncy - 90;
             return d3.interpolateString(startTop, endTop);
@@ -481,7 +480,7 @@ function ResetMove() {
     });
 }
 
-svg.on("click", function(event) {
+svg.on("click", function (event) {
     if (viewMoved && event.detail == 1 && !viewMoving) {
         viewMoving = true;
         ResetMove();
@@ -491,7 +490,7 @@ svg.on("click", function(event) {
 });
 
 const snippetPositions = CalculatePositions(width / 3, height / 2.25, snippetStacksNum),
-tabPositions = CalculatePositions(width / 4.5, height / 3.75, dates.length - 1 + faceBubbleGap);
+    tabPositions = CalculatePositions(width / 4.5, height / 3.75, dates.length - 1 + faceBubbleGap);
 function CalculatePositions(ellipseWidth, ellipseHeight, segmentsNum) {
 
     const positions = [];
@@ -516,24 +515,24 @@ function CalculatePositions(ellipseWidth, ellipseHeight, segmentsNum) {
 function ShowSnippets(ele) {
 
     const originalSnippet = document.getElementById("snippet-container"),
-    originalTab = document.getElementById("snippet-tab");
+        originalTab = document.getElementById("snippet-tab");
 
     let counter = 0,
-    stackDict = {};
+        stackDict = {};
     const speeches = ele.speeches;
     Object.keys(speeches).sort().forEach(key => {
 
         const index = dates.indexOf(key) - 1 + faceBubbleGap,
-        stackId = Math.floor(index / snippetStacksNum),
-        snippetY = snippetPositions[stackId].y - margin.top / 2 + index%snippetStacksNum,
-        snippetColour =  d3.color(affiliationColours[ele.affiliation]).darker(ele.darkness);
-        let snippetX = stackId <= 6 ? snippetPositions[stackId].x + margin.left + index%snippetStacksNum : snippetPositions[stackId].x - snippetWidth + margin.left + index%snippetStacksNum;
-        if (stackId == 0 || stackId == 6) snippetX -=  snippetWidth / 2;
+            stackId = Math.floor(index / snippetStacksNum),
+            snippetY = snippetPositions[stackId].y - margin.top / 2 + index % snippetStacksNum,
+            snippetColour = d3.color(affiliationColours[ele.affiliation]).darker(ele.darkness);
+        let snippetX = stackId <= 6 ? snippetPositions[stackId].x + margin.left + index % snippetStacksNum : snippetPositions[stackId].x - snippetWidth + margin.left + index % snippetStacksNum;
+        if (stackId == 0 || stackId == 6) snippetX -= snippetWidth / 2;
         else if (stackId == 1 || stackId == 5) snippetX -= snippetWidth / 3;
         else if (stackId == 7 || stackId == 11) snippetX += snippetWidth / 3;
 
         const cloneSnippet = originalSnippet.cloneNode(true),
-        cloneTab = originalTab.cloneNode(true);
+            cloneTab = originalTab.cloneNode(true);
 
         d3.select(cloneSnippet)
             .attr("class", "snippets")
@@ -551,7 +550,7 @@ function ShowSnippets(ele) {
             .style("box-shadow", "0px 3px 9px rgba(0, 0, 0, .15)")
             .style("background", "white")
             .style("display", "block")
-            .on("click", function() {
+            .on("click", function () {
                 const newSnippet = prevSnippet == null ? true : prevSnippet.id != cloneSnippet.id;
                 if (prevSnippet != null) PutBackSnippet(stackDict, false);
                 if (newSnippet) CallOutSnippet(cloneSnippet);
@@ -560,11 +559,11 @@ function ShowSnippets(ele) {
             .transition().delay(counter * 30)
             .style("opacity", 1);
 
-        const snippetText = "<b>Date:</b> " + speeches[key].formatedDate.toLocaleDateString("en-au", { year:"numeric", month:"short", day:"numeric"}) + "<br/>" + 
-            "<b>Speech Snippet Framing: </b>" + speeches[key].diff.toFixed(3)  + "<br/>" +
-			"<b>Speech Snippet: </b>" + "<br/>" + speeches[key].text;
-        d3.select(cloneSnippet).selectChildren().html( snippetText );
-        cloneSnippet.__data__ = { left : snippetX, top : snippetY, colour : snippetColour, id : faceIdDict[ele.speaker], index : dates.indexOf(key) };
+        const snippetText = "<b>Date:</b> " + speeches[key].formatedDate.toLocaleDateString("en-au", { year: "numeric", month: "short", day: "numeric" }) + "<br/>" +
+            "<b>Speech Snippet Framing: </b>" + speeches[key].diff.toFixed(3) + "<br/>" +
+            "<b>Speech Snippet: </b>" + "<br/>" + speeches[key].text;
+        d3.select(cloneSnippet).selectChildren().html(snippetText);
+        cloneSnippet.__data__ = { left: snippetX, top: snippetY, colour: snippetColour, id: faceIdDict[ele.speaker], index: dates.indexOf(key) };
 
         d3.select(cloneTab)
             .attr("class", "snippetTabs")
@@ -578,14 +577,14 @@ function ShowSnippets(ele) {
             .style("border-color", "black")
             .style("border-width", "0.5px")
             .style("background", diffColourScale(speeches[key].diff))
-            .on("mouseover", function() {
+            .on("mouseover", function () {
                 d3.select(this).moveToFront();
                 HighlightSnippet(stackDict, cloneSnippet);
             })
-            .on("mouseout", function() {
+            .on("mouseout", function () {
                 DehighlightSnippet(stackDict);
             })
-            .on("click", function() {
+            .on("click", function () {
                 const newSnippet = prevSnippet == null ? true : prevSnippet.id != cloneSnippet.id;
                 if (prevSnippet != null) PutBackSnippet(stackDict, true);
                 if (newSnippet) CallOutSnippet(cloneSnippet);
@@ -617,7 +616,7 @@ function HighlightSnippet(stackDict, snippet) {
             colour.opacity = 1;
         });
     });
-    
+
     d3.select(snippet).moveToFront();
 }
 
@@ -637,7 +636,7 @@ function HighlightMinor(snippet) {
     d3.selectAll(".snippetTabs").style("opacity", .25);
     d3.selectAll(".donut-" + snippet.__data__.id).style("opacity", clockOpacity);
 
-    d3.select("#snippetTab-" + snippet.__data__.id + "-" +  snippet.__data__.index)
+    d3.select("#snippetTab-" + snippet.__data__.id + "-" + snippet.__data__.index)
         .style("border-width", "2px")
         .style("opacity", 1);
     d3.select("#donut-" + snippet.__data__.id + "-" + snippet.__data__.index)
@@ -686,10 +685,10 @@ function CallOutSnippet(snippet, tabCallout) {
 function PutBackSnippet(stackDict) {
 
     const startHeight = prevSnippet.style.height,
-    startLeft  = prevSnippet.style.left,
-    endLeft = prevSnippet.__data__.left,
-    startTop = prevSnippet.style.top,
-    endTop = prevSnippet.__data__.top;
+        startLeft = prevSnippet.style.left,
+        endLeft = prevSnippet.__data__.left,
+        startTop = prevSnippet.style.top,
+        endTop = prevSnippet.__data__.top;
 
     d3.select(prevSnippet)
         .style("width", snippetWidth)
