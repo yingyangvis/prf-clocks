@@ -1,3 +1,7 @@
+.label {
+    font: 16px sans-serif;
+}
+
 #tooltip-container {
     position: absolute;
     overflow-y: auto;

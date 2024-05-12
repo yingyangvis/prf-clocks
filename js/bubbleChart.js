@@ -1,11 +1,12 @@
 // define svg canvas and vis variables
-const margin = { top: 50, right: 100, bottom: 50, left: 100 },
+const margin = { top: 50, right: 100, bottom: 50, left: 200 },
     width = window.innerWidth - margin.left - margin.right,
     height = window.innerHeight - margin.top - margin.bottom;
 
 const faceBubbleRadius = 30, faceBubbleStrokeWidth = 10, faceBubbleGap = 6,
     faceImageWidth = 35, faceOffset = 9.5, biggerFaceOffset = 9,
-    clockOpacity = .15, bandOpacity = 1,
+    clockOpacity = .2, bandOpacity = 1,
+    movementArrowStrokeWidth = 1.5, gapToArrow = 50,
     snippetWidth = 280, snippetHeight = 120, snippetGap = 30, snippetStacksNum = 12,
     callOutSnippetWidth = 500,
     transitDuration = 1000;
@@ -15,7 +16,11 @@ const svg = d3.select("#canvas")
     .attr("width", width + margin.left + margin.right - 10)
     .attr("height", height + margin.top + margin.bottom - 20),
     visGroup = svg.append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")"),
+    labelGroup = svg.append("g")
+        .attr("transform", "translate(" + (margin.left - 50) + "," + margin.top + ")"),
+    arrowGroup = svg.append("g")
+        .attr("transform", "translate(" + (margin.left + width / 2) + "," + (margin.top + height - gapToArrow) + ")");
 
 let resizeId;
 $(window).resize(function () {
@@ -35,9 +40,18 @@ const affiliationColours = {
     "Australian Labor Party": "#e43944",
     "Independent": "#248ca4",
     "Liberal Party of Australia": "#1c4c9c",
-    "National Party of Australia": "#f7d105"
+    "National Party of Australia": "#9a9462"
 };
 const diffColourScale = d3.scaleSequential(d3.interpolatePiYG);
+
+// define labels
+const affiliationLabels = {
+    "Australian Greens": "THE GREENS",
+    "Australian Labor Party": "LABOR",
+    "Independent": "INDEPENDENTS",
+    "Liberal Party of Australia": "LIBERAL",
+    "National Party of Australia": "NATIONALS"
+};
 
 // load data
 const speechData = await d3.json("data/results_speaker_affil.json");
@@ -163,6 +177,81 @@ Object.entries(affiliationClusters).forEach(entry => {
 });
 console.log(speakers);
 
+// plot movement arrows
+let markerBoxWidth = 8,
+    markerBoxHeight = 8,
+    refX = markerBoxWidth / 2,
+    refY = markerBoxHeight / 2,
+    arrowPoints = [[0, 0], [0, 8], [8, 4]];
+arrowGroup.append("defs")
+    .append("marker")
+    .attr("id", "movementArrow")
+    .attr("viewBox", [0, 0, markerBoxWidth, markerBoxHeight])
+    .attr("refX", refX)
+    .attr("refY", refY)
+    .attr("markerWidth", markerBoxWidth)
+    .attr("markerHeight", markerBoxHeight)
+    .attr("orient", "auto-start-reverse")
+    .append("path")
+    .attr("d", d3.line()(arrowPoints))
+    .attr("fill", "black")
+    .attr("stroke", "black")
+    .attr("stroke-width", 0.1);
+
+arrowGroup.append("line")
+    .attr("x1", -width / 2.2)
+    .attr("y1", 20)
+    .attr("x2", -width / 8)
+    .attr("y2", 20)
+    .attr("stroke", "black")
+    .attr("stroke-width", movementArrowStrokeWidth)
+    .attr("marker-start", "url(#movementArrow)")
+    .attr("fill", "none");
+arrowGroup.append("text")
+    .attr("class", "label")
+    .attr("x", -width / 2.2)
+    .attr("y", 50)
+    .text('"NO"')
+    .style("font-size", "20px")
+    .attr("text-anchor", "middle");
+arrowGroup.append("text")
+    .attr("class", "label")
+    .attr("x", -width / 2.2)
+    .attr("y", 70)
+    .text("to the Voice")
+    .attr("text-anchor", "middle");
+
+arrowGroup.append("text")
+    .attr("class", "label")
+    .attr("x", 0)
+    .attr("y", 50)
+    .text("Issue-Framing Diff Score")
+    .style("font-size", "18px")
+    .attr("text-anchor", "middle");
+
+arrowGroup.append("line")
+    .attr("x1", width / 8)
+    .attr("y1", 20)
+    .attr("x2", width / 2.2)
+    .attr("y2", 20)
+    .attr("stroke", "black")
+    .attr("stroke-width", movementArrowStrokeWidth)
+    .attr("marker-end", "url(#movementArrow)")
+    .attr("fill", "none");
+arrowGroup.append("text")
+    .attr("class", "label")
+    .attr("x", width / 2.2)
+    .attr("y", 50)
+    .text('"YES"')
+    .style("font-size", "20px")
+    .attr("text-anchor", "middle");
+arrowGroup.append("text")
+    .attr("class", "label")
+    .attr("x", width / 2.2)
+    .attr("y", 70)
+    .text("to the Voice")
+    .attr("text-anchor", "middle");
+
 // define X scale
 const xScale = d3.scaleLinear()
     .domain(d3.extent(diffs))
@@ -221,7 +310,19 @@ affiliationDomain.sort().pop();
 // define Y scale
 const yScale = d3.scaleBand()
     .domain(affiliationDomain)
-    .range([0, height]);
+    .range([0, height - gapToArrow]);
+
+// plot party labels
+Object.entries(affiliationLabels).forEach(entry => {
+    labelGroup.append("text")
+        .attr("class", "label")
+        .attr("x", 0)
+        .attr("y", yScale(entry[0]) + faceImageWidth / 2)
+        .text(entry[1])
+        .style("font-size", "18px")
+        .style("fill", affiliationColours[entry[0]])
+        .attr("text-anchor", "end");
+})
 
 // plot bubble chart
 const faceBubble = visGroup.selectAll("g")
@@ -428,6 +529,13 @@ function MoveToFace(ele) {
                 if (item.speaker != ele.speaker) return d.data.hasSpeech == 0 ? .015 : .03;
                 else return d.data.hasSpeech == 0 ? clockOpacity : bandOpacity;
             });
+
+        labelGroup
+            .transition().duration(transitDuration)
+            .style("opacity", .1);
+        arrowGroup
+            .transition().duration(transitDuration)
+            .style("opacity", .03);
     });
 
     d3.select("#tooltip-container")
@@ -477,6 +585,9 @@ function ResetMove() {
             .style("opacity", d => d.data.hasSpeech == 0 ? clockOpacity : bandOpacity)
             .transition().duration(transitDuration)
             .attr("transform", "translate(" + item.cx + "," + item.cy + ")");
+
+        labelGroup.style("opacity", 1);
+        arrowGroup.style("opacity", 1);
     });
 }
 
